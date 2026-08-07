@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: helpdesk
+      POSTGRES_DB: helpdesk
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helpdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Ollama serves the local LLM used for chat generation. On first boot you
+  # must pull a model (see README): `docker compose exec ollama ollama pull llama3.2`
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ENV: docker
+      DATABASE_URL: postgresql://helpdesk:helpdesk@postgres:5432/helpdesk
+      JWT_SECRET_KEY: change-this-to-a-long-random-string-in-real-deployments
+      CORS_ORIGINS: http://localhost:5173,http://localhost:8080
+      CHROMA_PERSIST_DIR: /app/chroma_store
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2
+      DEMO_DATA_DIR: /demo-data
+    volumes:
+      - ./backend:/app
+      - ./demo-data:/demo-data
+      - chroma_data:/app/chroma_store
+      - uploaded_docs:/app/uploaded_docs
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "alembic upgrade head &&
+             python -m app.seed.seed &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  pgdata:
+  ollama_data:
+  chroma_data:
+  uploaded_docs:
