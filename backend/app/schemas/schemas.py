@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, ConfigDict
-from app.models.models import RoleEnum, TicketStatus, TicketPriority, FeedbackVote
+from backend.app.models.user import RoleEnum, TicketStatus, TicketPriority, FeedbackVote
 
 
 class RegisterRequest(BaseModel):

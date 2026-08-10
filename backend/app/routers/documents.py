@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_roles, get_current_user, same_department_or_admin
-from app.models.models import Document, Department, User, RoleEnum
+from backend.app.models.user import Document, Department, User, RoleEnum
 from app.schemas.schemas import DocumentOut
 from app.services import rag_service
 from app.services.audit_service import log_action

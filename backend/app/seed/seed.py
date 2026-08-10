@@ -12,9 +12,15 @@ import glob
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from app.core.database import SessionLocal, Base, engine
+from app.core.database import SessionLocal, engine
 from app.core.security import hash_password
-from app.models.models import Department, User, Document, RoleEnum
+from app.models.base import Base
+from app.models.department import Department
+from app.models.user import User, RoleEnum
+from app.models.document import Document
+from app.models.ticket import Ticket, TicketComment
+from app.models.chat import ChatHistory, ChatFeedback
+from app.models.audit import AuditLog
 from app.services import rag_service
 
 DEPARTMENTS = [

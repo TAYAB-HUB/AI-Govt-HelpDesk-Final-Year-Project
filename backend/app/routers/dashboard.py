@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_roles
-from app.models.models import Ticket, Document, ChatLog, User, RoleEnum
+from backend.app.models.user import Ticket, Document, ChatLog, User, RoleEnum
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 

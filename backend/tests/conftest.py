@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.main import app  # noqa: E402
 from app.core.database import SessionLocal  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
-from app.models.models import Department, User, RoleEnum  # noqa: E402
+from backend.app.models.user import Department, User, RoleEnum  # noqa: E402
 
 
 @pytest.fixture(scope="session")

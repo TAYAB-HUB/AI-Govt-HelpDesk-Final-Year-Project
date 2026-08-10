@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.deps import get_current_user
-from app.models.models import User
+from backend.app.models.user import User
 from app.schemas.schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut
 from app.services.audit_service import log_action
 

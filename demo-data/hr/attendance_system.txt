@@ -1,0 +1,22 @@
+BIOMETRIC ATTENDANCE SYSTEM - USER GUIDE
+
+System Login:
+- Use your employee ID and password at http://attendance.gov.in
+- First-time users: Default password is your date of birth (DDMMYYYY)
+- Change password immediately after first login
+
+Daily Attendance:
+- Office hours: 9:30 AM to 6:00 PM
+- Grace time: 15 minutes
+- Late arrivals (after 9:45 AM) require supervisor approval
+- Minimum working hours per day: 8 hours (excluding lunch break)
+
+Regularization:
+- Missed biometric punch: Apply for regularization within 3 days
+- Attach supporting documents (medical certificate, travel proof, etc.)
+- Approval required from reporting officer
+
+Monthly Reports:
+- View your attendance report from Dashboard → My Attendance
+- Download monthly reports for reimbursement claims
+- Discrepancies should be reported to HR within 5 days of month end

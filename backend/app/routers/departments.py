@@ -4,7 +4,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles
-from app.models.models import Department, User, RoleEnum
+from backend.app.models.user import Department, User, RoleEnum
 from app.schemas.schemas import DepartmentCreate, DepartmentOut
 from app.services.audit_service import log_action
 

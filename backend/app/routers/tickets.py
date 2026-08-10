@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_roles, same_department_or_admin
-from app.models.models import Ticket, TicketComment, User, RoleEnum, TicketStatus
+from backend.app.models.user import Ticket, TicketComment, User, RoleEnum, TicketStatus
 from app.schemas.schemas import TicketCreate, TicketOut, TicketCommentCreate, TicketAssign
 from app.services.audit_service import log_action
 

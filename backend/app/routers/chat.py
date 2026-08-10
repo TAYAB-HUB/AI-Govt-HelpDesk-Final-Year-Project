@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user, same_department_or_admin
 from app.core.config import settings
-from app.models.models import ChatLog, Department, User, Feedback
+from backend.app.models.user import ChatLog, Department, User, Feedback
 from app.schemas.schemas import ChatRequest, ChatResponse, SourceRef, FeedbackRequest
 from app.services import rag_service
 

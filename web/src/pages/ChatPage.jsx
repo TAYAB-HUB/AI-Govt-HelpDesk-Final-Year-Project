@@ -1,160 +1,242 @@
-import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
-import { useAuth } from "../context/AuthContext";
-import { Card, Button, inputClass } from "../components/ui";
+import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import api from '../services/api';
+import toast from 'react-hot-toast';
+import { Send, ThumbsUp, ThumbsDown, FileText, Ticket } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import Layout from '../components/Layout';
 
 export default function ChatPage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [departments, setDepartments] = useState([]);
-  const [departmentId, setDepartmentId] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState([]);
-  const [question, setQuestion] = useState("");
-  const [asking, setAsking] = useState(false);
-  const bottomRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    api.listDepartments().then((depts) => {
-      setDepartments(depts);
-      if (user?.department_id) setDepartmentId(String(user.department_id));
-      else if (depts.length) setDepartmentId(String(depts[0].id));
+  // Fetch departments
+  const { data: departments } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const res = await api.get('/departments/');
+      return res.data;
+    }
+  });
+
+  // Fetch chat history
+  const { data: history } = useQuery({
+    queryKey: ['chatHistory', selectedDepartment],
+    queryFn: async () => {
+      if (!selectedDepartment) return [];
+      const res = await api.get(`/chat/history?department_id=${selectedDepartment}&limit=20`);
+      return res.data;
+    },
+    enabled: !!selectedDepartment
+  });
+
+  // Ask question mutation
+  const askMutation = useMutation({
+    mutationFn: async (data) => {
+      const res = await api.post('/chat/ask', data);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      const assistantMessage = {
+        type: 'assistant',
+        content: data.answer,
+        sources: data.sources,
+        confidence: data.confidence_score,
+        suggestTicket: data.suggest_ticket,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.detail || 'Failed to get answer');
+    }
+  });
+
+  // Submit feedback mutation
+  const feedbackMutation = useMutation({
+    mutationFn: async ({ chatId, feedbackType }) => {
+      const res = await api.post(`/chat/feedback/${chatId}`, { feedback_type: feedbackType });
+      return res.data;
+    },
+    onSuccess: () => {
+      toast.success('Thank you for your feedback!');
+    }
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!question.trim() || !selectedDepartment) return;
+
+    const userMessage = {
+      type: 'user',
+      content: question,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    askMutation.mutate({
+      question,
+      department_id: selectedDepartment
     });
-  }, [user]);
+
+    setQuestion('');
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollToBottom();
   }, [messages]);
 
-  async function handleAsk(e) {
-    e.preventDefault();
-    if (!question.trim() || !departmentId) return;
-    const q = question;
-    setQuestion("");
-    setAsking(true);
-    setMessages((m) => [...m, { role: "user", text: q }]);
-    try {
-      const resp = await api.askChat(Number(departmentId), q);
-      setMessages((m) => [...m, { role: "assistant", ...resp }]);
-    } catch (err) {
-      setMessages((m) => [...m, { role: "assistant", answer: `Error: ${err.message}`, sources: [] }]);
-    } finally {
-      setAsking(false);
-    }
-  }
-
-  async function handleFeedback(chat_log_id, vote, idx) {
-    try {
-      await api.sendFeedback(chat_log_id, vote);
-      setMessages((m) => m.map((msg, i) => (i === idx ? { ...msg, feedbackGiven: vote } : msg)));
-    } catch {
-      /* non-critical */
-    }
-  }
-
-  function raiseTicket(originChatLogId, presetQuestion) {
-    navigate("/tickets/new", {
-      state: { department_id: Number(departmentId), origin_chat_log_id: originChatLogId, subject: presetQuestion },
-    });
-  }
-
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="font-display text-2xl">Ask the helpdesk</h1>
-        <select
-          className={inputClass + " w-56"}
-          value={departmentId}
-          onChange={(e) => { setDepartmentId(e.target.value); setMessages([]); }}
-        >
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-      </div>
+    <Layout>
+      <div className="max-w-6xl mx-auto h-[calc(100vh-200px)] flex flex-col">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">AI Helpdesk Chat</h1>
+          
+          {/* Department Selector */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {departments?.map(dept => (
+              <button
+                key={dept.id}
+                onClick={() => {
+                  setSelectedDepartment(dept.id);
+                  setMessages([]);
+                }}
+                className={`px-4 py-2 rounded-lg whitespace-nowrap transition ${
+                  selectedDepartment === dept.id
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {dept.name}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <Card className="flex-1 overflow-y-auto scrollbar-thin p-6 mb-4">
-        {messages.length === 0 && (
-          <p className="text-sm" style={{ color: "var(--ink-soft)" }}>
-            Ask about leave, payroll, IT issues, pension, or office admin rules for the
-            selected department. Answers are grounded in approved documents, with sources shown below each answer.
-          </p>
-        )}
-        <div className="space-y-5">
-          {messages.map((m, i) =>
-            m.role === "user" ? (
-              <div key={i} className="flex justify-end">
-                <div className="rounded-md px-4 py-2 max-w-lg text-sm text-white" style={{ background: "var(--navy)" }}>
-                  {m.text}
-                </div>
+        {/* Chat Messages */}
+        <div className="flex-1 bg-white rounded-lg shadow-sm p-4 overflow-y-auto mb-4">
+          {!selectedDepartment ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <p>Please select a department to start chatting</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+              <div className="text-center">
+                <p className="text-lg mb-2">👋 Hello! How can I help you today?</p>
+                <p className="text-sm">Ask me anything about {departments?.find(d => d.id === selectedDepartment)?.name}</p>
               </div>
-            ) : (
-              <div key={i} className="max-w-2xl">
-                <div className="rounded-md px-4 py-3 text-sm border" style={{ borderColor: "var(--line)", background: "var(--paper-raised)" }}>
-                  <p className="whitespace-pre-wrap">{m.answer}</p>
-
-                  {m.sources?.length > 0 && (
-                    <>
-                      <hr className="ledger-divider" />
-                      <div className="space-y-1">
-                        {m.sources.map((s, si) => (
-                          <div key={si} className="text-xs flex gap-2" style={{ color: "var(--ink-soft)" }}>
-                            <span className="font-mono shrink-0" style={{ color: "var(--teal)" }}>[{si + 1}]</span>
-                            <span><strong>{s.document_title}</strong> — {(s.score * 100).toFixed(0)}% match</span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-3xl ${msg.type === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900'} rounded-lg p-4`}>
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    
+                    {/* Sources */}
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-300">
+                        <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                          <FileText size={14} /> Sources:
+                        </p>
+                        {msg.sources.map((source, sidx) => (
+                          <div key={sidx} className="text-xs bg-white bg-opacity-20 rounded p-2 mb-1">
+                            <p className="font-medium">{source.document_title}</p>
+                            <p className="text-xs opacity-75 mt-1">{source.snippet}</p>
                           </div>
                         ))}
                       </div>
-                    </>
-                  )}
+                    )}
 
-                  {m.suggest_ticket && (
-                    <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: "var(--line)" }}>
-                      <span className="text-xs" style={{ color: "var(--amber)" }}>
-                        Low confidence — you may want a human to help.
-                      </span>
-                      <Button variant="secondary" onClick={() => raiseTicket(m.chat_log_id, messages[i - 1]?.text)}>
-                        Raise a ticket
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                {m.chat_log_id && (
-                  <div className="flex gap-2 mt-1.5 ml-1">
-                    <button
-                      onClick={() => handleFeedback(m.chat_log_id, "up", i)}
-                      className="text-xs"
-                      style={{ color: m.feedbackGiven === "up" ? "var(--teal)" : "var(--ink-soft)" }}
-                    >
-                      👍 Helpful
-                    </button>
-                    <button
-                      onClick={() => handleFeedback(m.chat_log_id, "down", i)}
-                      className="text-xs"
-                      style={{ color: m.feedbackGiven === "down" ? "var(--danger)" : "var(--ink-soft)" }}
-                    >
-                      👎 Not helpful
-                    </button>
+                    {/* Confidence & Actions */}
+                    {msg.type === 'assistant' && (
+                      <div className="mt-3 pt-3 border-t border-gray-300 flex items-center justify-between">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => feedbackMutation.mutate({ chatId: idx, feedbackType: 'thumbs_up' })}
+                            className="p-1 hover:bg-gray-200 rounded transition"
+                            title="Helpful"
+                          >
+                            <ThumbsUp size={16} />
+                          </button>
+                          <button
+                            onClick={() => feedbackMutation.mutate({ chatId: idx, feedbackType: 'thumbs_down' })}
+                            className="p-1 hover:bg-gray-200 rounded transition"
+                            title="Not helpful"
+                          >
+                            <ThumbsDown size={16} />
+                          </button>
+                        </div>
+                        <div className="text-xs">
+                          Confidence: {(msg.confidence * 100).toFixed(0)}%
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Suggest Ticket */}
+                    {msg.suggestTicket && (
+                      <div className="mt-3 pt-3 border-t border-gray-300">
+                        <button
+                          onClick={() => navigate('/tickets?action=create')}
+                          className="text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition flex items-center gap-1"
+                        >
+                          <Ticket size={14} />
+                          I couldn't find a good answer. Create a support ticket?
+                        </button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
           )}
-          <div ref={bottomRef} />
-        </div>
-      </Card>
 
-      <form onSubmit={handleAsk} className="flex gap-2">
-        <input
-          className={inputClass}
-          placeholder="e.g. How many days of earned leave do I get?"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          disabled={asking}
-        />
-        <Button type="submit" disabled={asking || !question.trim()}>
-          {asking ? "Thinking…" : "Ask"}
-        </Button>
-      </form>
-    </div>
+          {askMutation.isPending && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 rounded-lg p-4">
+                <div className="flex gap-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Input Form */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder={selectedDepartment ? "Ask your question..." : "Select a department first"}
+              disabled={!selectedDepartment || askMutation.isPending}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+            />
+            <button
+              type="submit"
+              disabled={!selectedDepartment || !question.trim() || askMutation.isPending}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Send size={18} />
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
+    </Layout>
   );
 }

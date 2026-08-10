@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 venv/
+.venv/
+.venv*/
 backend/venv/
 env/
 ENV/
@@ -47,6 +49,8 @@ yarn-error.log*
 install-log-tail.txt
 backend/install-output.txt
 backend/installed.txt
+backend/seed-output.txt
+seed-output.txt
 
 # Editor & OS files
 .DS_Store

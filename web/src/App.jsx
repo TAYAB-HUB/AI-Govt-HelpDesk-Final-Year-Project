@@ -1,72 +1,99 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
-import AppShell from "./layouts/AppShell";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ChatPage from "./pages/ChatPage";
-import TicketsPage from "./pages/TicketsPage";
-import NewTicketPage from "./pages/NewTicketPage";
-import TicketDetailPage from "./pages/TicketDetailPage";
-import DocumentsPage from "./pages/DocumentsPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import UsersPage from "./pages/UsersPage";
-import DepartmentsPage from "./pages/DepartmentsPage";
-import AuditLogPage from "./pages/AuditLogPage";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-function ProtectedRoute({ children, roles }) {
+// Pages
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import EmployeeDashboard from './pages/EmployeeDashboard';
+import OfficerDashboard from './pages/OfficerDashboard';
+import DeptAdminDashboard from './pages/DeptAdminDashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import ChatPage from './pages/ChatPage';
+import TicketsPage from './pages/TicketsPage';
+import TicketDetailPage from './pages/TicketDetailPage';
+
+const queryClient = new QueryClient();
+
+// Protected Route Component
+function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="p-10 text-sm">Loading…</div>;
-  if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" />;
+  }
+
   return children;
 }
 
-function HomeRedirect() {
+// Dashboard Router
+function DashboardRouter() {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "employee") return <Navigate to="/chat" replace />;
-  return <Navigate to="/tickets" replace />;
+
+  if (!user) return <Navigate to="/login" />;
+
+  switch (user.role) {
+    case 'Employee':
+      return <EmployeeDashboard />;
+    case 'Officer':
+      return <OfficerDashboard />;
+    case 'DeptAdmin':
+      return <DeptAdminDashboard />;
+    case 'SuperAdmin':
+      return <SuperAdminDashboard />;
+    default:
+      return <Navigate to="/login" />;
+  }
 }
 
-export default function App() {
+function App() {
   return (
-    <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-
-          <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-            <Route path="/" element={<HomeRedirect />} />
-            <Route path="/chat" element={<ProtectedRoute roles={["employee"]}><ChatPage /></ProtectedRoute>} />
-            <Route path="/tickets" element={<TicketsPage />} />
-            <Route path="/tickets/new" element={<ProtectedRoute roles={["employee"]}><NewTicketPage /></ProtectedRoute>} />
-            <Route path="/tickets/:id" element={<TicketDetailPage />} />
-            <Route
-              path="/documents"
-              element={<ProtectedRoute roles={["dept_admin", "super_admin"]}><DocumentsPage /></ProtectedRoute>}
-            />
-            <Route
-              path="/analytics"
-              element={<ProtectedRoute roles={["dept_admin", "super_admin", "officer"]}><AnalyticsPage /></ProtectedRoute>}
-            />
-            <Route
-              path="/users"
-              element={<ProtectedRoute roles={["dept_admin", "super_admin"]}><UsersPage /></ProtectedRoute>}
-            />
-            <Route
-              path="/departments"
-              element={<ProtectedRoute roles={["super_admin"]}><DepartmentsPage /></ProtectedRoute>}
-            />
-            <Route
-              path="/audit-log"
-              element={<ProtectedRoute roles={["super_admin"]}><AuditLogPage /></ProtectedRoute>}
-            />
-          </Route>
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            
+            <Route path="/" element={
+              <ProtectedRoute>
+                <DashboardRouter />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/chat" element={
+              <ProtectedRoute allowedRoles={['Employee', 'Officer', 'DeptAdmin', 'SuperAdmin']}>
+                <ChatPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/tickets" element={
+              <ProtectedRoute>
+                <TicketsPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/tickets/:id" element={
+              <ProtectedRoute>
+                <TicketDetailPage />
+              </ProtectedRoute>
+            } />
+          </Routes>
+          <Toaster position="top-right" />
+        </BrowserRouter>
       </AuthProvider>
-    </BrowserRouter>
+    </QueryClientProvider>
   );
 }
+
+export default App;

@@ -1,194 +1,268 @@
 """
-RAG pipeline module.
-
-Flow:
-  1. chunk_text()            -> split raw document text into overlapping chunks
-  2. get_embedder()          -> lazily load sentence-transformers model (singleton)
-  3. get_chroma_collection() -> one persistent Chroma collection per department
-  4. ingest_document()       -> embed chunks + store in Chroma with metadata
-  5. retrieve()               -> embed the question, similarity-search Chroma
-  6. generate_answer()        -> call local Ollama with retrieved context;
-                                 falls back to a template answer if Ollama is
-                                 unreachable/errors, so the demo never crashes.
-
-ASSUMPTION: similarity score is derived from Chroma's L2 distance,
-normalized to a 0..1 "confidence" where 1.0 = perfect match. The exact
-formula is an implementation choice, not specified in the project plan.
+RAG (Retrieval-Augmented Generation) Service
+Handles document ingestion, embedding, retrieval, and LLM generation
 """
 import os
-import re
-import logging
-from functools import lru_cache
-from typing import List, Tuple
-
-import chromadb
 import httpx
+from typing import List, Dict, Any, Optional
+from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings as ChromaSettings
+from pypdf import PdfReader
+import pdfplumber
+from pathlib import Path
 
 from app.core.config import settings
 
-logger = logging.getLogger("rag")
-
-
-def extract_text(file_path: str, filename: str) -> str:
-    ext = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
-    if ext == "pdf":
-        from pypdf import PdfReader
-        reader = PdfReader(file_path)
-        return "\n".join((page.extract_text() or "") for page in reader.pages)
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        return f.read()
-
-
-def chunk_text(text: str, chunk_size: int = None, overlap: int = None) -> List[str]:
-    chunk_size = chunk_size or settings.CHUNK_SIZE_CHARS
-    overlap = overlap or settings.CHUNK_OVERLAP_CHARS
-    text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        return []
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = min(start + chunk_size, len(text))
-        chunks.append(text[start:end])
-        if end == len(text):
-            break
-        start = end - overlap
-    return chunks
-
-
-class _FallbackEmbedder:
-    """
-    Deterministic bag-of-words hashing embedder used ONLY if the real
-    sentence-transformers model cannot be loaded (e.g. no internet access to
-    download weights on first run). Keeps the system demoable end-to-end
-    instead of crashing, matching the plan's "graceful fallback" philosophy.
-    Not semantically strong -- swap for the real model whenever possible.
-    """
-    DIM = 384
-
-    def encode(self, texts: List[str], **kwargs) -> List[List[float]]:
-        import hashlib
-        import math
-        vectors = []
-        for t in texts:
-            vec = [0.0] * self.DIM
-            for word in re.findall(r"[a-z0-9]+", t.lower()):
-                h = int(hashlib.md5(word.encode()).hexdigest(), 16)
-                idx = h % self.DIM
-                vec[idx] += 1.0
-            norm = math.sqrt(sum(v * v for v in vec)) or 1.0
-            vectors.append([v / norm for v in vec])
-        return vectors
-
-
-@lru_cache(maxsize=1)
-def get_embedder():
-    try:
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
-        logger.info("Loaded sentence-transformers model: %s", settings.EMBEDDING_MODEL_NAME)
-        return model
-    except Exception as e:  # pragma: no cover - environment dependent
-        logger.warning(
-            "Could not load sentence-transformers model (%s). Falling back to "
-            "lightweight hashing embedder. RAG relevance will be degraded until "
-            "this is fixed (usually a missing internet connection on first run).", e,
+class RAGService:
+    def __init__(self):
+        # Initialize embedding model
+        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        
+        # Initialize ChromaDB with persistence
+        os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
+        self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+        
+        # Ollama client configuration
+        self.ollama_base_url = settings.OLLAMA_BASE_URL
+        self.ollama_model = settings.OLLAMA_MODEL
+        self.ollama_available = self._check_ollama_availability()
+    
+    def _check_ollama_availability(self) -> bool:
+        """Check if Ollama is running and accessible."""
+        try:
+            response = httpx.get(f"{self.ollama_base_url}/api/tags", timeout=5)
+            return response.status_code == 200
+        except:
+            print("⚠️  Ollama not available - using fallback mode")
+            return False
+    
+    def get_or_create_collection(self, department_id: int):
+        """Get or create a ChromaDB collection for a department."""
+        collection_name = f"dept_{department_id}_docs"
+        try:
+            collection = self.chroma_client.get_collection(collection_name)
+        except:
+            collection = self.chroma_client.create_collection(
+                name=collection_name,
+                metadata={"department_id": department_id}
+            )
+        return collection
+    
+    def extract_text_from_pdf(self, file_path: str) -> str:
+        """Extract text from PDF file."""
+        text = ""
+        try:
+            with pdfplumber.open(file_path) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        except Exception as e:
+            print(f"pdfplumber failed: {e}, trying pypdf...")
+            with open(file_path, 'rb') as file:
+                pdf_reader = PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+        return text
+    
+    def chunk_text(self, text: str, chunk_size: int = None, overlap: int = None) -> List[str]:
+        """Split text into overlapping chunks."""
+        chunk_size = chunk_size or settings.CHUNK_SIZE
+        overlap = overlap or settings.CHUNK_OVERLAP
+        
+        chunks = []
+        start = 0
+        text_length = len(text)
+        
+        while start < text_length:
+            end = start + chunk_size
+            chunk = text[start:end]
+            
+            # Try to end at a sentence boundary
+            if end < text_length:
+                last_period = chunk.rfind('.')
+                last_newline = chunk.rfind('\n')
+                boundary = max(last_period, last_newline)
+                if boundary > chunk_size // 2:
+                    chunk = chunk[:boundary + 1]
+                    end = start + len(chunk)
+            
+            chunks.append(chunk.strip())
+            start = end - overlap
+        
+        return [c for c in chunks if len(c) > 50]  # Filter very small chunks
+    
+    def ingest_document(
+        self, 
+        document_id: int,
+        department_id: int,
+        file_path: str,
+        title: str,
+        file_type: str
+    ) -> int:
+        """
+        Ingest a document into the vector store.
+        Returns the number of chunks created.
+        """
+        # Extract text based on file type
+        if file_type.lower() == 'pdf':
+            text = self.extract_text_from_pdf(file_path)
+        else:  # txt or other text formats
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+        
+        # Chunk the text
+        chunks = self.chunk_text(text)
+        
+        # Get collection for this department
+        collection = self.get_or_create_collection(department_id)
+        
+        # Generate embeddings and store
+        embeddings = self.embedding_model.encode(chunks).tolist()
+        
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            chunk_id = f"doc_{document_id}_chunk_{i}"
+            
+            collection.add(
+                ids=[chunk_id],
+                documents=[chunk],
+                embeddings=[embedding],
+                metadatas=[{
+                    "document_id": document_id,
+                    "document_title": title,
+                    "chunk_index": i,
+                    "department_id": department_id
+                }]
+            )
+        
+        return len(chunks)
+    
+    def retrieve_relevant_chunks(
+        self,
+        question: str,
+        department_id: int,
+        top_k: int = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve the most relevant document chunks for a question.
+        """
+        top_k = top_k or settings.MAX_RETRIEVED_CHUNKS
+        
+        collection = self.get_or_create_collection(department_id)
+        
+        # Calculate question embedding
+        query_embedding = self.embedding_model.encode([question]).tolist()
+        
+        # Query the collection
+        results = collection.query(
+            query_embeddings=query_embedding,
+            n_results=top_k
         )
-        return _FallbackEmbedder()
+        
+        # Format results
+        chunks = []
+        if results['ids'] and len(results['ids'][0]) > 0:
+            for i in range(len(results['ids'][0])):
+                chunks.append({
+                    "text": results['documents'][0][i],
+                    "metadata": results['metadatas'][0][i],
+                    "distance": results['distances'][0][i] if 'distances' in results else None
+                })
+        
+        return chunks
+    
+    async def generate_answer_ollama(
+        self,
+        question: str,
+        context_chunks: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Generate an answer using Ollama LLM.
+        """
+        if not self.ollama_available:
+            return self._generate_fallback_answer(context_chunks)
+        
+        # Build context from chunks
+        context = "\n\n".join([
+            f"[From: {chunk['metadata']['document_title']}]\n{chunk['text']}"
+            for chunk in context_chunks
+        ])
+        
+        # Create prompt
+        prompt = f"""You are a helpful government employee helpdesk assistant. Answer the question based ONLY on the provided context. If the context doesn't contain enough information, say so.
 
+Context:
+{context}
 
-def embed(texts: List[str]) -> List[List[float]]:
-    model = get_embedder()
-    vectors = model.encode(texts, normalize_embeddings=True) if hasattr(model, "encode") else model.encode(texts)
-    return [list(map(float, v)) for v in vectors]
+Question: {question}
 
-
-@lru_cache(maxsize=1)
-def get_chroma_client():
-    os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
-    return chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-
-
-def get_collection(department_code: str):
-    client = get_chroma_client()
-    return client.get_or_create_collection(name=f"dept_{department_code.lower()}")
-
-
-def ingest_document(department_code: str, document_id: int, document_title: str, text: str) -> int:
-    chunks = chunk_text(text)
-    if not chunks:
-        return 0
-    vectors = embed(chunks)
-    collection = get_collection(department_code)
-    ids = [f"doc{document_id}_chunk{i}" for i in range(len(chunks))]
-    metadatas = [{"document_id": document_id, "document_title": document_title, "chunk_index": i}
-                 for i in range(len(chunks))]
-    collection.upsert(ids=ids, embeddings=vectors, documents=chunks, metadatas=metadatas)
-    return len(chunks)
-
-
-def delete_document(department_code: str, document_id: int):
-    collection = get_collection(department_code)
-    collection.delete(where={"document_id": document_id})
-
-
-def retrieve(department_code: str, query: str, top_k: int = None) -> List[dict]:
-    top_k = top_k or settings.RAG_TOP_K
-    collection = get_collection(department_code)
-    if collection.count() == 0:
-        return []
-    query_vec = embed([query])[0]
-    results = collection.query(query_embeddings=[query_vec], n_results=min(top_k, collection.count()))
-
-    hits = []
-    docs = results.get("documents", [[]])[0]
-    metas = results.get("metadatas", [[]])[0]
-    dists = results.get("distances", [[]])[0]
-    for doc_text, meta, dist in zip(docs, metas, dists):
-        score = max(0.0, 1.0 - (dist / 2.0))
-        hits.append({"text": doc_text, "document_title": meta.get("document_title", "Unknown"),
-                     "document_id": meta.get("document_id"), "score": round(score, 4)})
-    return hits
-
-
-def _template_answer(question: str, hits: List[dict]) -> str:
-    if not hits:
-        return ("I couldn't find anything in the approved department documents "
-                "that answers this question. Please raise a ticket so an officer "
-                "can help you directly.")
-    top = hits[0]
-    return (f"Based on \"{top['document_title']}\", here is the most relevant information:\n\n"
-            f"{top['text'].strip()}\n\n"
-            f"(This is a direct excerpt shown because the local AI model is unavailable. "
-            f"If this doesn't fully answer your question, please raise a ticket.)")
-
-
-def generate_answer(question: str, hits: List[dict]) -> Tuple[str, str]:
-    if settings.LLM_PROVIDER != "ollama":
-        return _template_answer(question, hits), "template"
-
-    context = "\n\n---\n\n".join(f"[Source: {h['document_title']}]\n{h['text']}" for h in hits) \
-        or "No relevant department documents were found."
-
-    prompt = (
-        "You are a helpful assistant for Indian government employees. "
-        "Answer the employee's question using ONLY the context below. "
-        "If the context does not contain the answer, say you don't know "
-        "and suggest raising a support ticket. Be concise.\n\n"
-        f"Context:\n{context}\n\nEmployee question: {question}\n\nAnswer:"
-    )
-    try:
-        resp = httpx.post(
-            f"{settings.OLLAMA_BASE_URL}/api/generate",
-            json={"model": settings.OLLAMA_MODEL, "prompt": prompt, "stream": False},
-            timeout=settings.OLLAMA_TIMEOUT_SECONDS,
+Answer (be concise and cite the source document):"""
+        
+        try:
+            async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT) as client:
+                response = await client.post(
+                    f"{self.ollama_base_url}/api/generate",
+                    json={
+                        "model": self.ollama_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.3,
+                            "top_p": 0.9,
+                            "max_tokens": 300
+                        }
+                    }
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get("response", "").strip()
+                else:
+                    print(f"Ollama error: {response.status_code}")
+                    return self._generate_fallback_answer(context_chunks)
+        
+        except Exception as e:
+            print(f"Ollama generation failed: {e}")
+            return self._generate_fallback_answer(context_chunks)
+    
+    def _generate_fallback_answer(self, context_chunks: List[Dict[str, Any]]) -> str:
+        """
+        Generate a template-based answer when Ollama is unavailable.
+        """
+        if not context_chunks:
+            return "I don't have enough information to answer this question."
+        
+        # Simple extractive answer: return the most relevant chunk
+        best_chunk = context_chunks[0]
+        doc_title = best_chunk['metadata']['document_title']
+        
+        return f"Based on the document '{doc_title}', here is the relevant information:\n\n{best_chunk['text'][:300]}..."
+    
+    def calculate_confidence(self, chunks: List[Dict[str, Any]]) -> float:
+        """
+        Calculate confidence score based on retrieval distances.
+        Lower distance = higher confidence.
+        """
+        if not chunks or chunks[0].get('distance') is None:
+            return 0.5  # Default medium confidence
+        
+        # Convert distance to confidence (distance is typically 0-2)
+        min_distance = chunks[0]['distance']
+        confidence = max(0, min(1, 1 - (min_distance / 2)))
+        return round(confidence, 2)
+    
+    def delete_document_from_index(self, document_id: int, department_id: int):
+        """Remove all chunks of a document from the vector store."""
+        collection = self.get_or_create_collection(department_id)
+        
+        # Get all chunk IDs for this document
+        results = collection.get(
+            where={"document_id": document_id}
         )
-        resp.raise_for_status()
-        data = resp.json()
-        answer = (data.get("response") or "").strip()
-        if not answer:
-            raise ValueError("Empty response from Ollama")
-        return answer, "ollama"
-    except Exception as e:  # pragma: no cover - environment dependent
-        logger.warning("Ollama generation failed (%s); using template fallback.", e)
-        return _template_answer(question, hits), "template"
+        
+        if results['ids']:
+            collection.delete(ids=results['ids'])
+
+# Global instance
+rag_service = RAGService()

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_roles
-from app.models.models import AuditLog, User, RoleEnum
+from backend.app.models.user import AuditLog, User, RoleEnum
 from app.schemas.schemas import AuditLogOut, UserOut
 from app.services.audit_service import log_action
 

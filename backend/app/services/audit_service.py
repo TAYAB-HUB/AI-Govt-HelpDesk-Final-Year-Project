@@ -1,12 +1,30 @@
-from typing import Optional
+"""
+Audit Service - Logs critical actions for compliance
+"""
 from sqlalchemy.orm import Session
-from app.models.models import AuditLog
+from typing import Optional, Dict, Any
 
+from app.models.audit import AuditLog
 
-def log_action(db: Session, actor_id: Optional[int], action: str, target_type: str = "",
-               target_id: Optional[int] = None, detail: str = ""):
-    entry = AuditLog(actor_id=actor_id, action=action, target_type=target_type,
-                      target_id=target_id, detail=detail)
-    db.add(entry)
-    db.commit()
-    return entry
+class AuditService:
+    @staticmethod
+    def log(
+        db: Session,
+        action: str,
+        entity_type: str,
+        user_id: Optional[int] = None,
+        entity_id: Optional[int] = None,
+        details: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None
+    ):
+        """Create an audit log entry."""
+        audit = AuditLog(
+            user_id=user_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details,
+            ip_address=ip_address
+        )
+        db.add(audit)
+        db.commit()
