@@ -55,6 +55,6 @@ seed-output.txt
 # Editor & OS files
 .DS_Store
 Thumbs.db
-.vscode/
+#.vscode/
 .idea/
 .claude/

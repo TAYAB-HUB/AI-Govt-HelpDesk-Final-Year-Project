@@ -222,6 +222,33 @@ npx expo start
 
 ---
 
+### Option C: Run in Visual Studio Code (VS Code Tasks)
+
+1. **Open the Project Folder in VS Code**:
+   `File` -> `Open Folder...` -> Select `AI-Govt-HelpDesk-Final-Year-Project`.
+
+2. **Method 1 — Run via Pre-configured VS Code Tasks (Easiest)**:
+   - Press `Ctrl + Shift + B` (or `Cmd + Shift + B` on Mac).
+   - Select **`🚀 Start Full Helpdesk System (Backend + Web)`**.
+   - VS Code will automatically spin up both the FastAPI Backend (`http://localhost:8000`) and the React Web App (`http://localhost:5173`) in dedicated split terminals!
+
+3. **Method 2 — Run via Integrated Terminals**:
+   - Open VS Code Terminal (`Ctrl + ~`).
+   - Split or create 2 terminals (`Ctrl + Shift + 5` or click `+`):
+     - **Terminal 1 (Backend)**:
+       ```powershell
+       cd backend
+       .\venv\Scripts\activate
+       uvicorn app.main:app --reload --port 8000
+       ```
+     - **Terminal 2 (Web App)**:
+       ```powershell
+       cd web
+       npm run dev
+       ```
+
+---
+
 ## 🔑 Default Demo Login Credentials
 
 All seeded accounts are initialized with password: **`Demo@1234`**
