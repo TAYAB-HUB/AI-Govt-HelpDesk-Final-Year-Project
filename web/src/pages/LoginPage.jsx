@@ -89,9 +89,9 @@ export default function LoginPage() {
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">
           <p className="text-xs font-semibold text-gray-700 mb-2">Demo Credentials:</p>
           <div className="text-xs text-gray-600 space-y-1">
-            <p>Employee: employee@demo.gov.in / employee123</p>
-            <p>Officer: officer.hr@demo.gov.in / officer123</p>
-            <p>Admin: admin.hr@demo.gov.in / admin123</p>
+            <p>Employee: employee@demo.gov.in / Demo@1234</p>
+            <p>Officer (HR): officer.hr@demo.gov.in / Demo@1234</p>
+            <p>Dept Admin (HR): admin.hr@demo.gov.in / Demo@1234</p>
           </div>
         </div>
       </div>

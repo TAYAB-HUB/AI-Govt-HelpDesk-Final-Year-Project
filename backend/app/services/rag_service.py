@@ -16,17 +16,23 @@ from app.core.config import settings
 
 class RAGService:
     def __init__(self):
-        # Initialize embedding model
-        self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
-        
-        # Initialize ChromaDB with persistence
-        os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
-        self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-        
-        # Ollama client configuration
+        # Loading the embedding model can take time on the first run.  Keep API
+        # startup fast so login and other non-AI features remain available.
+        self.embedding_model = None
+        self.chroma_client = None
         self.ollama_base_url = settings.OLLAMA_BASE_URL
         self.ollama_model = settings.OLLAMA_MODEL
-        self.ollama_available = self._check_ollama_availability()
+        self.ollama_available = None
+
+    def _ensure_initialized(self):
+        """Initialize AI resources only when a document/chat action needs them."""
+        if self.embedding_model is None:
+            self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        if self.chroma_client is None:
+            os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
+            self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+        if self.ollama_available is None:
+            self.ollama_available = self._check_ollama_availability()
     
     def _check_ollama_availability(self) -> bool:
         """Check if Ollama is running and accessible."""
@@ -39,6 +45,7 @@ class RAGService:
     
     def get_or_create_collection(self, department_id: int):
         """Get or create a ChromaDB collection for a department."""
+        self._ensure_initialized()
         collection_name = f"dept_{department_id}_docs"
         try:
             collection = self.chroma_client.get_collection(collection_name)
@@ -180,6 +187,7 @@ class RAGService:
         """
         Generate an answer using Ollama LLM.
         """
+        self._ensure_initialized()
         if not self.ollama_available:
             return self._generate_fallback_answer(context_chunks)
         

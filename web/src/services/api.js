@@ -1,11 +1,13 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+export const createEmployee = (employee) => api.post('/admin/employees', employee);
 
 // Request interceptor
 api.interceptors.request.use(

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 
-from app.api import auth, chat, tickets, documents, departments, analytics
+from app.api import admin, auth, chat, tickets, documents, departments, analytics
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -26,6 +26,7 @@ app.include_router(tickets.router)
 app.include_router(documents.router)
 app.include_router(departments.router)
 app.include_router(analytics.router)
+app.include_router(admin.router)
 
 @app.get("/")
 def root():

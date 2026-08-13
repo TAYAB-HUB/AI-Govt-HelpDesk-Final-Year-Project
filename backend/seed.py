@@ -697,10 +697,10 @@ def main():
         print("="*60)
         print("\n📧 Demo Login Credentials:")
         print("-" * 60)
-        print("Super Admin:     superadmin@demo.gov.in / super123")
-        print("Dept Admin (HR): admin.hr@demo.gov.in / admin123")
-        print("Officer (HR):    officer.hr@demo.gov.in / officer123")
-        print("Employee:        employee@demo.gov.in / employee123")
+        print("Super Admin:     superadmin@demo.gov.in / Demo@1234")
+        print("Dept Admin (HR): admin.hr@demo.gov.in / Demo@1234")
+        print("Officer (HR):    officer.hr@demo.gov.in / Demo@1234")
+        print("Employee:        employee@demo.gov.in / Demo@1234")
         print("-" * 60)
         
     except Exception as e:
