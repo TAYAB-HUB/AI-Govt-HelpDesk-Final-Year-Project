@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/govt_helpdesk"
+    DATABASE_URL: str = "sqlite:///./helpdesk.db"
     
     # Security
     SECRET_KEY: str = "your-secret-key-change-in-production-min-32-chars"

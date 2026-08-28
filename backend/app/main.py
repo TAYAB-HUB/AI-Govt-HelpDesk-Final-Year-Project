@@ -1,8 +1,40 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.database import engine, SessionLocal
+from app.models.base import Base
+import app.models
 
 from app.api import admin, auth, chat, tickets, documents, departments, analytics
+
+# Create database tables automatically
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Table creation info: {e}")
+
+def auto_seed_db():
+    db = SessionLocal()
+    try:
+        from app.models.user import User
+        if db.query(User).count() == 0:
+            import sys
+            from pathlib import Path
+            backend_dir = str(Path(__file__).parent.parent)
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+            from seed import seed_departments, seed_users
+            departments = seed_departments(db)
+            seed_users(db, departments)
+    except Exception as e:
+        print(f"Auto-seed warning: {e}")
+    finally:
+        db.close()
+
+try:
+    auto_seed_db()
+except Exception as e:
+    print(f"Auto-seed error: {e}")
 
 app = FastAPI(
     title=settings.APP_NAME,
