@@ -2,22 +2,29 @@
 RAG (Retrieval-Augmented Generation) Service
 Handles document ingestion, embedding, retrieval, and LLM generation
 """
-import os
-import httpx
-from typing import List, Dict, Any, Optional
-from sentence_transformers import SentenceTransformer
-import chromadb
-from chromadb.config import Settings as ChromaSettings
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
+
+try:
+    import chromadb
+except ImportError:
+    chromadb = None
+
 from pypdf import PdfReader
-import pdfplumber
+
+try:
+    import pdfplumber
+except ImportError:
+    pdfplumber = None
+
 from pathlib import Path
 
 from app.core.config import settings
 
 class RAGService:
     def __init__(self):
-        # Loading the embedding model can take time on the first run.  Keep API
-        # startup fast so login and other non-AI features remain available.
         self.embedding_model = None
         self.chroma_client = None
         self.ollama_base_url = settings.OLLAMA_BASE_URL
@@ -27,10 +34,26 @@ class RAGService:
     def _ensure_initialized(self):
         """Initialize AI resources only when a document/chat action needs them."""
         if self.embedding_model is None:
-            self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+            if SentenceTransformer is not None:
+                try:
+                    self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+                except Exception as e:
+                    print(f"SentenceTransformer failed: {e}")
+                    self.embedding_model = False
+            else:
+                self.embedding_model = False
+
         if self.chroma_client is None:
-            os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
-            self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+            if chromadb is not None:
+                try:
+                    os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
+                    self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+                except Exception as e:
+                    print(f"ChromaDB failed: {e}")
+                    self.chroma_client = False
+            else:
+                self.chroma_client = False
+
         if self.ollama_available is None:
             self.ollama_available = self._check_ollama_availability()
     
@@ -46,6 +69,8 @@ class RAGService:
     def get_or_create_collection(self, department_id: int):
         """Get or create a ChromaDB collection for a department."""
         self._ensure_initialized()
+        if not self.chroma_client:
+            return None
         collection_name = f"dept_{department_id}_docs"
         try:
             collection = self.chroma_client.get_collection(collection_name)
@@ -59,20 +84,29 @@ class RAGService:
     def extract_text_from_pdf(self, file_path: str) -> str:
         """Extract text from PDF file."""
         text = ""
+        if pdfplumber is not None:
+            try:
+                with pdfplumber.open(file_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+                if text:
+                    return text
+            except Exception as e:
+                print(f"pdfplumber failed: {e}, trying pypdf...")
+        
         try:
-            with pdfplumber.open(file_path) as pdf:
-                for page in pdf.pages:
+            with open(file_path, 'rb') as file:
+                pdf_reader = PdfReader(file)
+                for page in pdf_reader.pages:
                     page_text = page.extract_text()
                     if page_text:
                         text += page_text + "\n"
         except Exception as e:
-            print(f"pdfplumber failed: {e}, trying pypdf...")
-            with open(file_path, 'rb') as file:
-                pdf_reader = PdfReader(file)
-                for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
+            print(f"pypdf failed: {e}")
         return text
-    
+
     def chunk_text(self, text: str, chunk_size: int = None, overlap: int = None) -> List[str]:
         """Split text into overlapping chunks."""
         chunk_size = chunk_size or settings.CHUNK_SIZE
@@ -124,6 +158,8 @@ class RAGService:
         
         # Get collection for this department
         collection = self.get_or_create_collection(department_id)
+        if not collection or not self.embedding_model:
+            return len(chunks)
         
         # Generate embeddings and store
         embeddings = self.embedding_model.encode(chunks).tolist()
@@ -156,7 +192,13 @@ class RAGService:
         """
         top_k = top_k or settings.MAX_RETRIEVED_CHUNKS
         
+        self._ensure_initialized()
+        if not self.chroma_client or not self.embedding_model:
+            return []
+
         collection = self.get_or_create_collection(department_id)
+        if not collection:
+            return []
         
         # Calculate question embedding
         query_embedding = self.embedding_model.encode([question]).tolist()

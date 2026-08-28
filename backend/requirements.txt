@@ -18,13 +18,8 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 email-validator>=2.0.0
 
-# AI/RAG
-sentence-transformers>=3.0.0
-chromadb>=0.5.0
+# PDF & Utilities
 pypdf==3.17.1
-pdfplumber==0.10.3
-langchain>=0.1.0
-langchain-community>=0.0.1
 
 # HTTP Client for Ollama
 httpx==0.25.2
