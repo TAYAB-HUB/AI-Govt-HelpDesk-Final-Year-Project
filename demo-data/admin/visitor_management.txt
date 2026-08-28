@@ -1,0 +1,38 @@
+VISITOR MANAGEMENT SYSTEM
+
+Visitor Entry:
+- All visitors must register at Reception (Gate 1)
+- Valid photo ID mandatory (Aadhaar/Driving License/Passport)
+- Visitor pass issued after host employee confirmation
+- Entry time: 9:00 AM to 5:30 PM (Monday-Friday)
+
+Visitor Pass Types:
+1. Single-day pass: Valid till 6:00 PM same day
+2. Multiple-day pass: Requires HOD approval (max 5 days)
+3. Contractor pass: Valid for contract duration (with photo)
+
+Host Employee Responsibilities:
+- Must confirm visitor via SMS/email to reception
+- Meet visitor at reception within 15 minutes
+- Ensure visitor wears pass visibly
+- Escort visitor at all times in restricted areas
+- Return pass at departure
+
+Meeting Room Booking:
+- Book via Facility Portal: https://facility.gov.in
+- Conference Room A (capacity 50): Requires 7 days advance booking
+- Meeting Rooms B, C, D (capacity 10-15): 2 days advance
+- Cancellation: At least 4 hours before scheduled time
+- Facilities: Projector, Video conferencing (on request)
+
+VIP Visitors:
+- Inform Admin Section 3 days in advance
+- Provide: Name, designation, expected time, purpose
+- Security clearance processed by Security Officer
+- Parking reserved in VIP zone
+
+Security Restrictions:
+- Laptops/cameras: Prior approval from Security
+- Mobile phones allowed in general areas
+- Restricted zones: No photography
+- Unattended baggage: Immediately report to security
