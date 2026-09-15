@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import api from '../services/api';
+import api, { backendIsConfigured, backendSetupMessage } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -25,6 +25,9 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
+    if (!backendIsConfigured) {
+      throw new Error(backendSetupMessage);
+    }
     const response = await api.post('/auth/login', { email, password });
     const { access_token, user: userData } = response.data;
     

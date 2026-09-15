@@ -1,11 +1,19 @@
 import axios from 'axios';
 
+const configuredApiUrl = import.meta.env.VITE_API_BASE_URL;
+const isProduction = import.meta.env.MODE === 'production';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  // A deployed frontend must use its hosted API, never the visitor's localhost.
+  baseURL: configuredApiUrl || (isProduction ? '' : 'http://localhost:8000'),
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+export const backendIsConfigured = Boolean(configuredApiUrl) || !isProduction;
+export const backendSetupMessage =
+  'The helpdesk service is still being connected. Please try again shortly.';
 
 export const createEmployee = (employee) => api.post('/admin/employees', employee);
 

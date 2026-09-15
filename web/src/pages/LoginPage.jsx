@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { LogIn } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck, Sparkles } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -20,81 +21,79 @@ export default function LoginPage() {
       toast.success('Login successful!');
       navigate('/');
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Login failed');
+      toast.error(error.response?.data?.detail || error.message || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <LogIn className="w-8 h-8 text-white" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">AI Govt Helpdesk</h1>
-          <p className="text-gray-600 mt-2">Sign in to your account</p>
-        </div>
+    <main className="login-page min-h-screen p-5 sm:p-8">
+      <div className="login-orb login-orb-one" />
+      <div className="login-orb login-orb-two" />
+      <section className="login-shell">
+        <aside className="login-aside">
+          <div className="brand-mark"><ShieldCheck aria-hidden="true" /></div>
+          <p className="login-kicker"><Sparkles size={15} aria-hidden="true" /> Digital public service</p>
+          <h1>Help that moves public service forward.</h1>
+          <p className="login-aside-copy">A secure workspace for employees, officers, and department administrators.</p>
+          <div className="login-trust"><LockKeyhole size={18} aria-hidden="true" /><span>Protected access for authorised personnel</span></div>
+        </aside>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
+        <div className="login-card">
+          <div className="login-mobile-mark"><ShieldCheck aria-hidden="true" /></div>
+          <div className="login-heading">
+            <p className="login-eyebrow">Welcome back</p>
+            <h2>Sign in to Helpdesk</h2>
+            <p>Use your official account to continue.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="login-form">
+            <label>
+              <span>Email address</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@department.gov.in"
+                autoComplete="email"
+                required
+              />
             </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="employee@demo.gov.in"
-              required
-            />
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
+            <label>
+              <span>Password</span>
+              <div className="password-field">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                  <span>{showPassword ? 'Hide' : 'Show'}</span>
+                </button>
+              </div>
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
-              required
-            />
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+            <button type="submit" disabled={loading} className="login-submit">
+              <span>{loading ? 'Signing in…' : 'Sign in securely'}</span>
+              {!loading && <ArrowRight size={19} aria-hidden="true" />}
+            </button>
+          </form>
 
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-              Register here
-            </Link>
-          </p>
+          <p className="login-register">New to the portal? <Link to="/register">Create an account</Link></p>
         </div>
-
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <p className="text-xs font-semibold text-gray-700 mb-2">Demo Credentials:</p>
-          <div className="text-xs text-gray-600 space-y-1">
-            <p>Employee: employee@demo.gov.in / Demo@1234</p>
-            <p>Officer (HR): officer.hr@demo.gov.in / Demo@1234</p>
-            <p>Dept Admin (HR): admin.hr@demo.gov.in / Demo@1234</p>
-          </div>
-        </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
