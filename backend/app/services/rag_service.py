@@ -54,7 +54,10 @@ class RAGService:
             else:
                 self.chroma_client = False
 
-        if self.ollama_available is None:
+        # Ollama may still be downloading its model while this API starts.
+        # Retry after a failed check so the service begins using it as soon as
+        # it is ready rather than staying in fallback mode until a restart.
+        if self.ollama_available is not True:
             self.ollama_available = self._check_ollama_availability()
     
     def _check_ollama_availability(self) -> bool:
