@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     # Comma-separated browser origins allowed to call this API.  Set this to
     # the Vercel URL (and any custom domain) in production.
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,https://ai-govt-help-desk-final-year-projec.vercel.app"
     
     # Ollama
     OLLAMA_BASE_URL: str = "http://localhost:11434"

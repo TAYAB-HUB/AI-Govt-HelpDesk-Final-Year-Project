@@ -2,16 +2,9 @@
 RAG (Retrieval-Augmented Generation) Service
 Handles document ingestion, embedding, retrieval, and LLM generation
 """
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    SentenceTransformer = None
-
-try:
-    import chromadb
-except ImportError:
-    chromadb = None
-
+import os
+import httpx
+from typing import Any, Dict, List, Optional
 from pypdf import PdfReader
 
 try:
@@ -34,24 +27,20 @@ class RAGService:
     def _ensure_initialized(self):
         """Initialize AI resources only when a document/chat action needs them."""
         if self.embedding_model is None:
-            if SentenceTransformer is not None:
-                try:
-                    self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
-                except Exception as e:
-                    print(f"SentenceTransformer failed: {e}")
-                    self.embedding_model = False
-            else:
+            try:
+                from sentence_transformers import SentenceTransformer
+                self.embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL)
+            except Exception as e:
+                print(f"SentenceTransformer failed: {e}")
                 self.embedding_model = False
 
         if self.chroma_client is None:
-            if chromadb is not None:
-                try:
-                    os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
-                    self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-                except Exception as e:
-                    print(f"ChromaDB failed: {e}")
-                    self.chroma_client = False
-            else:
+            try:
+                import chromadb
+                os.makedirs(settings.CHROMA_PERSIST_DIR, exist_ok=True)
+                self.chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+            except Exception as e:
+                print(f"ChromaDB failed: {e}")
                 self.chroma_client = False
 
         # Ollama may still be downloading its model while this API starts.
