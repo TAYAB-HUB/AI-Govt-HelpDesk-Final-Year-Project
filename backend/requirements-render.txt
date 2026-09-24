@@ -21,9 +21,6 @@ email-validator>=2.0.0
 # PDF Utilities
 pypdf==3.17.1
 
-# AI/RAG (lightweight embedding only - no Ollama needed)
-sentence-transformers>=3.0.0
-chromadb>=0.5.0
 
 # HTTP Client
 httpx==0.25.2

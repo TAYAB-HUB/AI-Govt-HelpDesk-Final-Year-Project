@@ -1,0 +1,30 @@
+SALARY STRUCTURE - CENTRAL GOVERNMENT EMPLOYEES
+
+Basic Pay:
+- 7th Pay Commission matrix
+- Annual increment: 3% (every July)
+- Stagnation increment after maximum scale
+
+Allowances:
+- Dearness Allowance (DA): Current rate 42% of Basic Pay (revised quarterly)
+- House Rent Allowance (HRA):
+  * X-class cities: 24% of Basic
+  * Y-class cities: 16% of Basic
+  * Z-class cities: 8% of Basic
+- Transport Allowance: ₹3600 + DA
+
+Deductions:
+- Income Tax (as per IT slab)
+- Provident Fund (GPF): 6% of Basic + DA (minimum)
+- Professional Tax: ₹200/month (state-dependent)
+- Group Insurance: ₹120/month
+
+Bonus & Incentives:
+- Performance-linked bonus: Up to 20% of Basic Pay
+- Productivity-linked bonus: ₹3500 annually
+- Festival advance: ₹10,000 (non-interest bearing)
+
+Salary Slip:
+- Available on HRMS portal by 25th of every month
+- Download and save for tax filing
+- Discrepancies: Report to Accounts Section within 5 days

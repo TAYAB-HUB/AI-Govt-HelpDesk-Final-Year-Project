@@ -186,7 +186,7 @@ class RAGService:
         
         self._ensure_initialized()
         if not self.chroma_client or not self.embedding_model:
-            return []
+            return self._retrieve_chunks_lexical(question, department_id, top_k)
 
         collection = self.get_or_create_collection(department_id)
         if not collection:
@@ -211,7 +211,56 @@ class RAGService:
                     "distance": results['distances'][0][i] if 'distances' in results else None
                 })
         
-        return chunks
+        if chunks:
+            return chunks
+        return self._retrieve_chunks_lexical(question, department_id, top_k)
+
+    def _retrieve_chunks_lexical(self, question: str, department_id: int, top_k: int = 3):
+        import re
+        from collections import Counter
+        from pathlib import Path
+        stopwords = {'what', 'is', 'are', 'the', 'a', 'an', 'and', 'or', 'for', 'to', 'in', 'on', 'at', 'of', 'by', 'do', 'i', 'get', 'how', 'many', 'can', 'my', 'me', 'please', 'tell', 'about', 'with', 'from', 'this', 'that', 'it', 'be', 'as', 'any'}
+        dept_map = {1: 'HR', 2: 'FINANCE', 3: 'IT', 4: 'PENSION', 5: 'ADMIN'}
+        dept_code = dept_map.get(department_id, 'HR')
+        candidate_dirs = [
+            Path(__file__).parent.parent.parent / 'demo-data',
+            Path(__file__).parent.parent.parent.parent / 'demo-data',
+            Path('demo-data'),
+            Path('../demo-data')
+        ]
+        data_dir = next((cd for cd in candidate_dirs if cd.exists()), None)
+        if not data_dir:
+            return []
+        q_words = [w.lower() for w in re.findall(r'\w+', question) if w.lower() not in stopwords]
+        if not q_words:
+            q_words = [w.lower() for w in re.findall(r'\w+', question)]
+        q_counts = Counter(q_words)
+        target_dirs = [data_dir / dept_code, data_dir / dept_code.lower()]
+        dept_dir = next((td for td in target_dirs if td.exists()), None)
+        if not dept_dir:
+            return []
+        scored_chunks = []
+        for f in dept_dir.glob('*.txt'):
+            doc_title = f.stem.replace('_', ' ').title()
+            try:
+                text = f.read_text(encoding='utf-8', errors='ignore')
+            except Exception:
+                continue
+            for p in text.split('\n\n'):
+                p = p.strip()
+                if len(p) < 25:
+                    continue
+                p_words = [w.lower() for w in re.findall(r'\w+', p)]
+                score = sum(q_counts[w] for w in p_words if w in q_counts)
+                if score > 0:
+                    scored_chunks.append({
+                        'score': score,
+                        'text': p,
+                        'metadata': {'document_title': doc_title, 'department_id': department_id},
+                        'distance': max(0.1, round(1.0 - (score * 0.15), 2))
+                    })
+        scored_chunks.sort(key=lambda x: x['score'], reverse=True)
+        return scored_chunks[:top_k]
     
     async def generate_answer_ollama(
         self,
