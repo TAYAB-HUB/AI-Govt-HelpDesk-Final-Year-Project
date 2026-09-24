@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: ai-govt-helpdesk-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite:///./helpdesk.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: false
+      - key: CORS_ORIGINS
+        value: https://ai-govt-help-desk-final-year-projec.vercel.app,https://ai-govt-help-desk-final-year-project.vercel.app
+      - key: OLLAMA_BASE_URL
+        value: http://localhost:11434
+      - key: OLLAMA_MODEL
+        value: llama3.2
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      - key: PYTHON_VERSION
+        value: 3.11.0
