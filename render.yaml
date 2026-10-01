@@ -1,23 +1,24 @@
 services:
   - type: web
     name: ai-govt-helpdesk-backend
+    plan: free
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements-render.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        value: sqlite:///./helpdesk.db
+        # Paste the Supabase PostgreSQL connection string during Blueprint setup.
+        # SQLite cannot persist on a free Render web service.
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
         value: false
       - key: CORS_ORIGINS
-        value: https://ai-govt-help-desk-final-year-projec.vercel.app,https://ai-govt-help-desk-final-year-project.vercel.app
-      - key: OLLAMA_BASE_URL
-        value: http://localhost:11434
-      - key: OLLAMA_MODEL
-        value: llama3.2
+        # Set this to your Vercel production URL, for example:
+        # https://your-project.vercel.app
+        sync: false
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 1440
       - key: PYTHON_VERSION
