@@ -27,6 +27,18 @@ class Ticket(Base):
     assignee = relationship("User", foreign_keys=[assigned_to], back_populates="tickets_assigned")
     comments = relationship("TicketComment", back_populates="ticket", cascade="all, delete-orphan")
 
+    @property
+    def creator_name(self) -> str:
+        return self.creator.full_name if self.creator else None
+
+    @property
+    def department_name(self) -> str:
+        return self.department.name if self.department else None
+
+    @property
+    def assignee_name(self) -> str:
+        return self.assignee.full_name if self.assignee else None
+
 class TicketComment(Base):
     __tablename__ = "ticket_comments"
     
@@ -40,3 +52,11 @@ class TicketComment(Base):
     # Relationships
     ticket = relationship("Ticket", back_populates="comments")
     user = relationship("User")
+
+    @property
+    def user_name(self) -> str:
+        return self.user.full_name if self.user else None
+
+    @property
+    def user_role(self) -> str:
+        return self.user.role if self.user else None

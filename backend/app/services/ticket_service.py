@@ -62,6 +62,16 @@ class TicketService:
         if status:
             query = query.filter(Ticket.status == status)
         return query.order_by(Ticket.created_at.desc()).all()
+
+    @staticmethod
+    def get_all_tickets(db: Session, status: Optional[str] = None, department_id: Optional[int] = None) -> List[Ticket]:
+        """Get all tickets across all departments, optionally filtered."""
+        query = db.query(Ticket)
+        if department_id:
+            query = query.filter(Ticket.department_id == department_id)
+        if status:
+            query = query.filter(Ticket.status == status)
+        return query.order_by(Ticket.created_at.desc()).all()
     
     @staticmethod
     def update_ticket(db: Session, ticket_id: int, ticket_data: TicketUpdate) -> Ticket:

@@ -24,7 +24,10 @@ class TicketResponse(TicketBase):
     ticket_number: str
     status: str
     created_by: int
+    creator_name: Optional[str] = None
+    department_name: Optional[str] = None
     assigned_to: Optional[int] = None
+    assignee_name: Optional[str] = None
     resolved_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
     created_at: datetime
@@ -36,13 +39,16 @@ class TicketResponse(TicketBase):
 class CommentCreate(BaseModel):
     comment: str
     is_internal: bool = False
+    status: Optional[str] = None
 
 class CommentResponse(BaseModel):
     id: int
     ticket_id: int
     user_id: int
+    user_name: Optional[str] = None
+    user_role: Optional[str] = None
     comment: str
-    is_internal: bool
+    is_internal: bool = False
     created_at: datetime
     
     class Config:
