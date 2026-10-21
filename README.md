@@ -2,6 +2,12 @@
 
 > Final Year Academic Project — a secure, department-wise support portal for government employees in India.
 
+## 🌐 Live Deployment
+
+- **Frontend (Web Application):** [https://ai-govt-help-desk-final-year-projec.vercel.app](https://ai-govt-help-desk-final-year-projec.vercel.app) *(Deployed on Vercel)*
+- **Backend (REST API):** [https://ai-govt-helpdesk-backend.onrender.com](https://ai-govt-helpdesk-backend.onrender.com) *(Deployed on Render)*
+- **Database:** Managed PostgreSQL *(Hosted on Supabase)*
+
 ## Project Details
 
 ### Problem Statement
@@ -251,13 +257,15 @@ The application was validated across unit, integration, and end-to-end smoke tes
 
 ---
 
-### 5. Screenshots & User Feedback
+### 5. System Screenshots
 
-*(Screenshots can be added here or referenced in presentations)*
+#### 1. Support Ticket Creation & Officer Resolution Timeline
+![Support ticket creation and officer resolution timeline](docs/screenshots/ticket-resolution-timeline.png)
 
-- **[INSERT: Screenshot - Chatbot conversation with source citation]**
-- **[INSERT: Screenshot - Support ticket creation and officer resolution timeline]**
-- **[INSERT: Screenshot - Department Admin analytics and document upload interface]**
-- **[INSERT: Screenshot - Mobile app interface on Expo Go]**
-- **[INSERT: User Feedback Survey Summary / User Acceptance Testing (UAT) Comments]**
+#### 2. Chatbot Conversation with Source Citation
+![Chatbot conversation with source citation](docs/screenshots/chatbot-source-citation.png)
+
+#### 3. Department Admin Analytics & Document Upload Interface
+![Department Admin analytics and document upload interface](docs/screenshots/dept-admin-analytics.png)
+
 
